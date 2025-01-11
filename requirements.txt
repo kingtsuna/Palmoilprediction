@@ -4,5 +4,5 @@ prophet
 matplotlib
 ta
 numpy
-sklearn
+scikit-learn
 seaborn
