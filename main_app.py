@@ -10,6 +10,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 from prophet import Prophet
+import warnings
+warnings.filterwarnings('ignore')
+
 
 # Trading Strategy Functions
 def load_and_prepare_data(csv_path):
@@ -100,10 +103,10 @@ def plot_signals(df, indicator_name, signal_column):
     plt.plot(df.index, df['Price'], label='Price', alpha=0.7, linewidth=2)
     plt.scatter(df[df[signal_column] == 1].index,
                 df[df[signal_column] == 1]['Price'],
-                marker='v', color='green', label='Buy Signal', s=150)
+                marker='^', color='red', label='Up Signal', s=150)
     plt.scatter(df[df[signal_column] == -1].index,
                 df[df[signal_column] == -1]['Price'],
-                marker='^', color='red', label='Sell Signal', s=150)
+                marker='v', color='green', label='Down Signal', s=150)
     plt.title(f'{indicator_name} Signals', fontsize=16, pad=20)
     plt.xlabel('Date', fontsize=12)
     plt.ylabel('Price', fontsize=12)
@@ -158,255 +161,6 @@ def plot_feature_importance(feature_importance):
     ax.set_ylabel("Features", fontsize=12)
     st.pyplot(fig)
 
-# # Main Streamlit App
-# st.title("Trading Strategy & Price Prediction")
-# tabs = st.tabs(["Trading Strategy Analyzer", "Palm Oil Price Prediction"])
-
-# with tabs[0]:
-#     st.header("Trading Strategy Analyzer")
-#     uploaded_file = st.file_uploader("Upload a CSV file for trading data", type=["csv"])
-#     if uploaded_file:
-#         df_data = load_and_prepare_data(uploaded_file)
-#         df_macd = calculate_macd_signals(df_data.copy())
-#         df_sto = calculate_stochastic_signals(df_data.copy())
-#         df_adx = calculate_adx_signals(df_data.copy())
-#         st.subheader("MACD Signals")
-#         plot_signals(df_macd, 'MACD', 'macd_signal')
-#         st.subheader("Stochastic Signals")
-#         plot_signals(df_sto, 'Stochastic', 'stoch_signal')
-#         st.subheader("ADX Signals")
-#         plot_signals(df_adx, 'ADX', 'adx_signal')
-#         success_days_min = 3
-#         success_days_max = 7
-#         success_threshold = 0.02
-
-#         # Evaluate success rates
-#         st.header("Strategy Success Rates")
-#         indicators = [
-#             (df_macd, 'MACD', 'macd_signal'),
-#             (df_sto, 'Stochastic', 'stoch_signal'),
-#             (df_adx, 'ADX', 'adx_signal')
-#         ]
-
-#         for df, indicator_name, signal_column in indicators:
-#             success_rate, success_count, total_signals, details = evaluate_strategy_success(
-#                 df, signal_column, success_days_min, success_days_max, success_threshold
-#             )
-#             st.subheader(f"{indicator_name} Strategy")
-#             st.write(f"Total Signals: {total_signals}")
-#             st.write(f"Successful Signals: {success_count}")
-#             st.write(f"Success Rate: {success_rate:.2f}%")
-
-# with tabs[1]:
-#     st.title("Palm Oil Price Prediction")
-
-#     # st.sidebar.header("Upload your CSV file")
-#     uploaded_file2 = st.file_uploader("Upload a CSV file for trading data", type=["csv"])
-
-#     if uploaded_file is not None:
-#         df = pd.read_csv(uploaded_file2)
-
-#         # Prepare the data
-#         df_prepared = prepare_data(df)
-
-#         # Create features and target
-#         X, y, dates = create_features_target(df_prepared)
-
-#         # Split the data
-#         X_train, X_test, y_train, y_test, dates_train, dates_test = train_test_split(
-#             X, y, dates, test_size=0.2, random_state=42
-#         )
-
-#         # Train the model
-#         model = RandomForestRegressor(
-#             n_estimators=300,
-#             max_depth=10,
-#             min_samples_split=2,
-#             min_samples_leaf=1,
-#             max_features='sqrt',
-#             random_state=42
-#         )
-#         model.fit(X_train, y_train)
-
-#         # Make predictions
-#         y_pred_train = model.predict(X_train)
-#         y_pred_test = model.predict(X_test)
-
-#         # Calculate metrics
-#         mse = mean_squared_error(y_test, y_pred_test)
-#         rmse = np.sqrt(mse)
-#         r2 = r2_score(y_test, y_pred_test)
-
-#         st.write("### Model Performance Metrics")
-#         st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.2f}")
-#         st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-#         st.write(f"**R-squared Score (R²):** {r2:.2f}")
-
-#         # Calculate feature importance
-#         feature_importance = pd.DataFrame({
-#             'feature': X.columns,
-#             'importance': model.feature_importances_
-#         }).sort_values('importance', ascending=False)
-
-#         st.write("### Feature Importance")
-#         st.write(feature_importance)
-
-#         # Plot feature importance
-#         plot_feature_importance(feature_importance)
-
-#         # Plot training and test predictions
-#         train_data = pd.DataFrame({
-#             'date': dates_train,
-#             'actual': y_train,
-#             'predicted': y_pred_train
-#         }).sort_values('date')
-
-#         test_data = pd.DataFrame({
-#             'date': dates_test,
-#             'actual': y_test,
-#             'predicted': y_pred_test
-#         }).sort_values('date')
-
-#         st.write("### Training Set Predictions")
-#         plot_time_series(train_data['date'], train_data['actual'], train_data['predicted'], 
-#                             "Palm Oil Price Over Time - Training Set")
-
-#         st.write("### Test Set Predictions")
-#         plot_time_series(test_data['date'], test_data['actual'], test_data['predicted'], 
-#                             "Palm Oil Price Over Time - Test Set")
-
-#         # Predict next month's price
-#         last_month_data = X.iloc[[-1]]
-#         next_month_prediction = model.predict(last_month_data)
-#         st.write(f"### Predicted Palm Oil Price for Next Month: {next_month_prediction[0]:.2f}")
-#     else:
-#         st.info("Please upload a CSV file to proceed.")
-
-# # Main Streamlit App
-# st.title("Trading Strategy & Price Prediction")
-# tabs = st.tabs(["Trading Strategy Analyzer", "Palm Oil Price Prediction"])
-
-# # Tab 1: Trading Strategy Analyzer
-# with tabs[0]:
-#     st.header("Trading Strategy Analyzer")
-#     uploaded_file = st.file_uploader("Upload a CSV file for trading data", type=["csv"], key="trading_tab")
-#     if uploaded_file:
-#         df_data = load_and_prepare_data(uploaded_file)
-#         df_macd = calculate_macd_signals(df_data.copy())
-#         df_sto = calculate_stochastic_signals(df_data.copy())
-#         df_adx = calculate_adx_signals(df_data.copy())
-#         st.subheader("MACD Signals")
-#         plot_signals(df_macd, 'MACD', 'macd_signal')
-#         st.subheader("Stochastic Signals")
-#         plot_signals(df_sto, 'Stochastic', 'stoch_signal')
-#         st.subheader("ADX Signals")
-#         plot_signals(df_adx, 'ADX', 'adx_signal')
-#         success_days_min = 3
-#         success_days_max = 7
-#         success_threshold = 0.02
-
-#         # Evaluate success rates
-#         st.header("Strategy Success Rates")
-#         indicators = [
-#             (df_macd, 'MACD', 'macd_signal'),
-#             (df_sto, 'Stochastic', 'stoch_signal'),
-#             (df_adx, 'ADX', 'adx_signal')
-#         ]
-
-#         for df, indicator_name, signal_column in indicators:
-#             success_rate, success_count, total_signals, details = evaluate_strategy_success(
-#                 df, signal_column, success_days_min, success_days_max, success_threshold
-#             )
-#             st.subheader(f"{indicator_name} Strategy")
-#             st.write(f"Total Signals: {total_signals}")
-#             st.write(f"Successful Signals: {success_count}")
-#             st.write(f"Success Rate: {success_rate:.2f}%")
-
-# # Tab 2: Palm Oil Price Prediction
-# with tabs[1]:
-#     st.title("Palm Oil Price Prediction")
-
-#     # Unique key for the second file uploader
-#     uploaded_file2 = st.file_uploader("Upload a CSV file for palm oil price prediction", type=["csv"], key="prediction_tab")
-
-#     if uploaded_file2 is not None:
-#         df = pd.read_csv(uploaded_file2)
-
-#         # Prepare the data
-#         df_prepared = prepare_data(df)
-
-#         # Create features and target
-#         X, y, dates = create_features_target(df_prepared)
-
-#         # Split the data
-#         X_train, X_test, y_train, y_test, dates_train, dates_test = train_test_split(
-#             X, y, dates, test_size=0.2, random_state=42
-#         )
-
-#         # Train the model
-#         model = RandomForestRegressor(
-#             n_estimators=300,
-#             max_depth=10,
-#             min_samples_split=2,
-#             min_samples_leaf=1,
-#             max_features='sqrt',
-#             random_state=42
-#         )
-#         model.fit(X_train, y_train)
-
-#         # Make predictions
-#         y_pred_train = model.predict(X_train)
-#         y_pred_test = model.predict(X_test)
-
-#         # Calculate metrics
-#         mse = mean_squared_error(y_test, y_pred_test)
-#         rmse = np.sqrt(mse)
-#         r2 = r2_score(y_test, y_pred_test)
-
-#         st.write("### Model Performance Metrics")
-#         st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.2f}")
-#         st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-#         st.write(f"**R-squared Score (R²):** {r2:.2f}")
-
-#         # Calculate feature importance
-#         feature_importance = pd.DataFrame({
-#             'feature': X.columns,
-#             'importance': model.feature_importances_
-#         }).sort_values('importance', ascending=False)
-
-#         st.write("### Feature Importance")
-#         st.write(feature_importance)
-
-#         # Plot feature importance
-#         plot_feature_importance(feature_importance)
-
-#         # Plot training and test predictions
-#         train_data = pd.DataFrame({
-#             'date': dates_train,
-#             'actual': y_train,
-#             'predicted': y_pred_train
-#         }).sort_values('date')
-
-#         test_data = pd.DataFrame({
-#             'date': dates_test,
-#             'actual': y_test,
-#             'predicted': y_pred_test
-#         }).sort_values('date')
-
-#         st.write("### Training Set Predictions")
-#         plot_time_series(train_data['date'], train_data['actual'], train_data['predicted'], 
-#                             "Palm Oil Price Over Time - Training Set")
-
-#         st.write("### Test Set Predictions")
-#         plot_time_series(test_data['date'], test_data['actual'], test_data['predicted'], 
-#                             "Palm Oil Price Over Time - Test Set")
-
-#         # Predict next month's price
-#         last_month_data = X.iloc[[-1]]
-#         next_month_prediction = model.predict(last_month_data)
-#         st.write(f"### Predicted Palm Oil Price for Next Month: {next_month_prediction[0]:.2f}")
-#     else:
-#         st.info("Please upload a CSV file to proceed.")
 
 def create_prophet_model(df):
     """
@@ -449,11 +203,82 @@ def plot_results(model, forecast, title="Palm Oil Price Forecast"):
     fig_forecast = model.plot(forecast)
     fig_components = model.plot_components(forecast)
     return fig_forecast, fig_components
+# Helper Functions
+def calculate_rmse_percentage(y_true, y_pred):
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    mean_actual = np.mean(y_true)
+    rmse_percentage = (rmse / mean_actual) * 100
+    return rmse_percentage
+
+def calculate_directional_accuracy(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    total_predictions = len(y_true) - 1
+    directional_correct = sum((y_true[t + 1] - y_true[t]) * (y_pred[t + 1] - y_true[t]) > 0 for t in range(total_predictions))
+    accuracy = (directional_correct / total_predictions) * 100
+    return accuracy
+
+def prepare_data_prophet(df):
+    prophet_df = df[['Month', 'Palm oil']].copy()
+    prophet_df.columns = ['ds', 'y']
+    prophet_df['ds'] = pd.to_datetime(prophet_df['ds'], format='%b-%y')
+    prophet_df['covid'] = ((prophet_df['ds'] >= '2020-03-01') & 
+                          (prophet_df['ds'] <= '2021-08-01')).astype(int)
+    prophet_df['war'] = ((prophet_df['ds'] >= '2021-12-01') & 
+                        (prophet_df['ds'] <= '2022-08-01')).astype(int)
+    return prophet_df
+
+def prepare_data_rf(df):
+    rf_df = df.copy()
+    for col in ['Palm oil', 'Rapeseed oil', 'Sunflower oil', 'Coconut oil']:
+        rf_df[f'{col}_Lag1'] = rf_df[col].shift(1)
+
+    rf_df['Price_Ratio_Palm_Rapeseed'] = rf_df['Palm oil_Lag1'] / rf_df['Rapeseed oil_Lag1']
+    rf_df['Price_Ratio_Palm_Sunflower'] = rf_df['Palm oil_Lag1'] / rf_df['Sunflower oil_Lag1']
+    rf_df['Price_Ratio_Palm_Coconut'] = rf_df['Palm oil_Lag1'] / rf_df['Coconut oil_Lag1']
+    rf_df['Month'] = pd.to_datetime(rf_df['Month'], format='%b-%y')
+    rf_df = rf_df.dropna().reset_index(drop=True)
+    return rf_df
+
+def train_prophet_model(df):
+    model = Prophet(yearly_seasonality=True, changepoint_prior_scale=0.5, seasonality_prior_scale=0.1,
+                    holidays_prior_scale=0.1, seasonality_mode='additive', changepoint_range=0.9)
+    model.add_seasonality(name='monthly', period=30.5, fourier_order=8)
+    model.add_seasonality(name='quarterly', period=365.25/4, fourier_order=5)
+    model.add_regressor('covid')
+    model.add_regressor('war')
+    model.fit(df)
+    return model
+
+def train_rf_model(X, y):
+    model = RandomForestRegressor(n_estimators=200, max_depth=10, min_samples_split=2,
+                                   min_samples_leaf=1, max_features='sqrt', random_state=42)
+    model.fit(X, y)
+    return model
+
+def combine_predictions(prophet_pred, rf_pred):
+    prophet_weight = 0.05
+    rf_weight = 0.95
+    combined_pred = prophet_weight * prophet_pred + rf_weight * rf_pred
+    return combined_pred
+
+def plot_predictions(dates, y_true, y_pred_prophet, y_pred_rf, y_pred_combined):
+    fig, ax = plt.subplots(figsize=(15, 7))
+    ax.plot(dates, y_true, label='Actual', marker='o', alpha=0.7)
+    ax.plot(dates, y_pred_prophet, label='Prophet (Univariate)', marker='x', alpha=0.5)
+    ax.plot(dates, y_pred_rf, label='Random Forest (Multivariate)', marker='+', alpha=0.5)
+    ax.plot(dates, y_pred_combined, label='Combined Model', marker='*', alpha=0.7, linewidth=2)
+    ax.set_title("Palm Oil Price Predictions", fontsize=14)
+    ax.set_xlabel('Date', fontsize=12)
+    ax.set_ylabel('Price', fontsize=12)
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    st.pyplot(fig)
 
 
 # Main Streamlit App
 st.title("Trading Strategy & Price Prediction")
-tabs = st.tabs(["Trading Strategy Analyzer", "Palm Oil Price Prediction", "Palm Oil Price Forecast with Prophet"])
+tabs = st.tabs(["Trading Strategy Analyzer", "Palm Oil Price Prediction"])
 
 # Tab 1: Trading Strategy Analyzer
 with tabs[0]:
@@ -491,146 +316,77 @@ with tabs[0]:
             st.write(f"Successful Signals: {success_count}")
             st.write(f"Success Rate: {success_rate:.2f}%")
 
-# Tab 2: Palm Oil Price Prediction
+# Tab 2: Combined Prediction
 with tabs[1]:
-    st.title("Palm Oil Price Prediction")
+    # Streamlit App
+    st.title("Palm Oil Price Prediction App")
 
-    # Unique key for the second file uploader
-    uploaded_file2 = st.file_uploader("Upload a CSV file for palm oil price prediction", type=["csv"], key="prediction_tab")
+    # File Upload
+    uploaded_file = st.file_uploader("Upload a CSV file with palm oil data:", type="csv")
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        prophet_df = prepare_data_prophet(df)
+        rf_df = prepare_data_rf(df)
 
-    if uploaded_file2 is not None:
-        df = pd.read_csv(uploaded_file2)
+        # st.write("### Data Preview")
+        # st.dataframe(df.head())
 
-        # Prepare the data
-        df_prepared = prepare_data(df)
+        # Train Prophet Model
+        # st.write("### Training Prophet Model")
+        prophet_model = train_prophet_model(prophet_df)
+        future_prophet = prophet_model.make_future_dataframe(periods=6, freq='M')
+        future_prophet['covid'] = ((future_prophet['ds'] >= '2020-03-01') & 
+                                (future_prophet['ds'] <= '2021-08-01')).astype(int)
+        future_prophet['war'] = ((future_prophet['ds'] >= '2021-12-01') & 
+                                (future_prophet['ds'] <= '2022-08-01')).astype(int)
+        forecast_prophet = prophet_model.predict(future_prophet)
 
-        # Create features and target
-        X, y, dates = create_features_target(df_prepared)
+        # Train Random Forest Model
+        # st.write("### Training Random Forest Model")
+        numerical_features = [
+            'Palm oil_Lag1', 'Rapeseed oil_Lag1', 'Sunflower oil_Lag1', 'Coconut oil_Lag1',
+            'Price_Ratio_Palm_Rapeseed', 'Price_Ratio_Palm_Sunflower', 'Price_Ratio_Palm_Coconut'
+        ]
+        X = rf_df[numerical_features]
+        y = rf_df['Palm oil']
+        dates = rf_df['Month']
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        X_scaled = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
+        rf_model = train_rf_model(X_scaled, y)
 
-        # Split the data
-        X_train, X_test, y_train, y_test, dates_train, dates_test = train_test_split(
-            X, y, dates, test_size=0.2, random_state=42
-        )
+        # Generate Predictions
+        prophet_predictions = forecast_prophet['yhat'].values[:len(prophet_df)]
+        rf_predictions = rf_model.predict(X_scaled)
+        min_length = min(len(y), len(prophet_predictions), len(rf_predictions))
+        y_aligned = y[:min_length]
+        prophet_pred_aligned = prophet_predictions[:min_length]
+        rf_pred_aligned = rf_predictions[:min_length]
+        dates_aligned = dates[:min_length]
+        combined_predictions = combine_predictions(prophet_pred_aligned, rf_pred_aligned)
 
-        # Train the model
-        model = RandomForestRegressor(
-            n_estimators=300,
-            max_depth=10,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            max_features='sqrt',
-            random_state=42
-        )
-        model.fit(X_train, y_train)
-
-        # Make predictions
-        y_pred_train = model.predict(X_train)
-        y_pred_test = model.predict(X_test)
-
-        # Calculate metrics
-        mse = mean_squared_error(y_test, y_pred_test)
-        rmse = np.sqrt(mse)
-        r2 = r2_score(y_test, y_pred_test)
-
+        # Metrics
         st.write("### Model Performance Metrics")
-        st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.2f}")
-        st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-        st.write(f"**R-squared Score (R²):** {r2:.2f}")
+        metrics_data = {
+            'Metric': ['Explained Fit', 'Prediction Error', 'Directional Accuracy'],
+            'Prophet': [
+                f"{r2_score(y_aligned, prophet_pred_aligned):.3f}",
+                f"{calculate_rmse_percentage(y_aligned, prophet_pred_aligned):.2f}%",
+                f"{calculate_directional_accuracy(y_aligned, prophet_pred_aligned):.2f}%"
+            ],
+            'Random Forest': [
+                f"{r2_score(y_aligned, rf_pred_aligned):.3f}",
+                f"{calculate_rmse_percentage(y_aligned, rf_pred_aligned):.2f}%",
+                f"{calculate_directional_accuracy(y_aligned, rf_pred_aligned):.2f}%"
+            ],
+            'Combined': [
+                f"{r2_score(y_aligned, combined_predictions):.3f}",
+                f"{calculate_rmse_percentage(y_aligned, combined_predictions):.2f}%",
+                f"{calculate_directional_accuracy(y_aligned, combined_predictions):.2f}%"
+            ]
+        }
+        st.table(pd.DataFrame(metrics_data))
 
-        # Calculate feature importance
-        feature_importance = pd.DataFrame({
-            'feature': X.columns,
-            'importance': model.feature_importances_
-        }).sort_values('importance', ascending=False)
-
-        st.write("### Feature Importance")
-        st.write(feature_importance)
-
-        # Plot feature importance
-        plot_feature_importance(feature_importance)
-
-        # Plot training and test predictions
-        train_data = pd.DataFrame({
-            'date': dates_train,
-            'actual': y_train,
-            'predicted': y_pred_train
-        }).sort_values('date')
-
-        test_data = pd.DataFrame({
-            'date': dates_test,
-            'actual': y_test,
-            'predicted': y_pred_test
-        }).sort_values('date')
-
-        st.write("### Training Set Predictions")
-        plot_time_series(train_data['date'], train_data['actual'], train_data['predicted'], 
-                            "Palm Oil Price Over Time - Training Set")
-
-        st.write("### Test Set Predictions")
-        plot_time_series(test_data['date'], test_data['actual'], test_data['predicted'], 
-                            "Palm Oil Price Over Time - Test Set")
-
-        # Predict next month's price
-        last_month_data = X.iloc[[-1]]
-        next_month_prediction = model.predict(last_month_data)
-        st.write(f"### Predicted Palm Oil Price for Next Month: {next_month_prediction[0]:.2f}")
-    else:
-        st.info("Please upload a CSV file to proceed.")
-
-# Tab 3: Palm Oil Price Forecast with Prophet
-with tabs[2]:
-    st.title("Palm Oil Price Forecast with Prophet")
-
-    # File uploader for Prophet model
-    uploaded_file_prophet = st.file_uploader("Upload a CSV file with 'Date' and 'Price' columns for Prophet", type=["csv"], key="prophet_tab")
-    if uploaded_file_prophet:
-        df = pd.read_csv(uploaded_file_prophet)
-
-        # Data preparation for Prophet
-        df.columns = ['ds', 'y']
-        df['ds'] = pd.to_datetime(df['ds'], format='%b-%y')
-        df['covid'] = ((df['ds'] >= '2020-03-01') & (df['ds'] <= '2021-08-01')).astype(int)
-        df['war'] = ((df['ds'] >= '2021-12-01') & (df['ds'] <= '2022-08-01')).astype(int)
-
-        # Train the Prophet model
-        with st.spinner("Training the Prophet model..."):
-            model = create_prophet_model(df)
-
-        # Make predictions with Prophet
-        with st.spinner("Making predictions..."):
-            forecast, rmse, r2 = make_predictions(model, df)
-
-        # Display metrics
-        st.write("### Model Performance Metrics")
-        st.write(f"**Root Mean Squared Error (RMSE):** {rmse:.2f}")
-        st.write(f"**R-squared Score (R²):** {r2:.2f}")
-
-        # Display predictions for next 6 months
-        predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(6)
-        st.write("### Predicted Palm Oil Prices for the Next 6 Months")
-        st.dataframe(predictions.rename(columns={
-            'ds': 'Date',
-            'yhat': 'Predicted Price',
-            'yhat_lower': 'Lower Bound',
-            'yhat_upper': 'Upper Bound'
-        }))
-
-        # Plot results
-        st.write("### Forecast Plot")
-        fig_forecast, fig_components = plot_results(model, forecast)
-        st.pyplot(fig_forecast)
-        st.write("### Forecast Components")
-        st.pyplot(fig_components)
-
-        # Save predictions to CSV
-        predictions_df = predictions[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
-        predictions_df.columns = ['Date', 'Predicted_Price', 'Lower_Bound', 'Upper_Bound']
-        predictions_csv = predictions_df.to_csv(index=False)
-        st.download_button(
-            label="Download Predictions as CSV",
-            data=predictions_csv,
-            file_name='palm_oil_predictions.csv',
-            mime='text/csv'
-        )
-    else:
-        st.info("Please upload a CSV file to proceed.")
+        # Plot Predictions
+        st.write("### Predictions vs Actual Values")
+        plot_predictions(dates_aligned, y_aligned, prophet_pred_aligned, rf_pred_aligned, combined_predictions)
