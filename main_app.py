@@ -103,10 +103,10 @@ def plot_signals(df, indicator_name, signal_column):
     plt.plot(df.index, df['Price'], label='Price', alpha=0.7, linewidth=2)
     plt.scatter(df[df[signal_column] == 1].index,
                 df[df[signal_column] == 1]['Price'],
-                marker='^', color='red', label='Up Signal', s=150)
+                marker='^', color='green', label='Up Signal', s=150)
     plt.scatter(df[df[signal_column] == -1].index,
                 df[df[signal_column] == -1]['Price'],
-                marker='v', color='green', label='Down Signal', s=150)
+                marker='v', color='red', label='Down Signal', s=150)
     plt.title(f'{indicator_name} Signals', fontsize=16, pad=20)
     plt.xlabel('Date', fontsize=12)
     plt.ylabel('Price', fontsize=12)
