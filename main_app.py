@@ -208,6 +208,7 @@ def calculate_rmse_percentage(y_true, y_pred):
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     mean_actual = np.mean(y_true)
     rmse_percentage = (rmse / mean_actual) * 100
+    print (f'\n\n\ndebug percentage {rmse_percentage}')
     return rmse_percentage
 
 def calculate_directional_accuracy(y_true, y_pred):
@@ -216,6 +217,7 @@ def calculate_directional_accuracy(y_true, y_pred):
     total_predictions = len(y_true) - 1
     directional_correct = sum((y_true[t + 1] - y_true[t]) * (y_pred[t + 1] - y_true[t]) > 0 for t in range(total_predictions))
     accuracy = (directional_correct / total_predictions) * 100
+    print (f'accuracy : {accuracy}')
     return accuracy
 
 def prepare_data_prophet(df):
@@ -265,8 +267,8 @@ def combine_predictions(prophet_pred, rf_pred):
 def plot_predictions(dates, y_true, y_pred_prophet, y_pred_rf, y_pred_combined):
     fig, ax = plt.subplots(figsize=(15, 7))
     ax.plot(dates, y_true, label='Actual', marker='o', alpha=0.7)
-    ax.plot(dates, y_pred_prophet, label='Prophet (Univariate)', marker='x', alpha=0.5)
-    ax.plot(dates, y_pred_rf, label='Random Forest (Multivariate)', marker='+', alpha=0.5)
+    ax.plot(dates, y_pred_prophet, label='Univariate', marker='x', alpha=0.5)
+    ax.plot(dates, y_pred_rf, label='Multivariate', marker='+', alpha=0.5)
     ax.plot(dates, y_pred_combined, label='Combined Model', marker='*', alpha=0.7, linewidth=2)
     ax.set_title("Palm Oil Price Predictions", fontsize=14)
     ax.set_xlabel('Date', fontsize=12)
@@ -274,6 +276,18 @@ def plot_predictions(dates, y_true, y_pred_prophet, y_pred_rf, y_pred_combined):
     ax.legend(fontsize=10)
     ax.grid(True, alpha=0.3)
     st.pyplot(fig)
+
+def combine_predictions2(prophet_pred, rf_pred):
+    """
+    Combine predictions using fixed weights:
+    Prophet: 0.05
+    Random Forest: 0.95
+    """
+    prophet_weight = 0.05
+    rf_weight = 0.95
+    combined_pred = prophet_weight * prophet_pred + rf_weight * rf_pred
+    return combined_pred, prophet_weight, rf_weight
+
 
 
 # Main Streamlit App
@@ -326,11 +340,6 @@ with tabs[1]:
         prophet_df = prepare_data_prophet(df)
         rf_df = prepare_data_rf(df)
 
-        # st.write("### Data Preview")
-        # st.dataframe(df.head())
-
-        # Train Prophet Model
-        # st.write("### Training Prophet Model")
         prophet_model = train_prophet_model(prophet_df)
         future_prophet = prophet_model.make_future_dataframe(periods=6, freq='M')
         future_prophet['covid'] = ((future_prophet['ds'] >= '2020-03-01') & 
@@ -363,24 +372,86 @@ with tabs[1]:
         dates_aligned = dates[:min_length]
         combined_predictions = combine_predictions(prophet_pred_aligned, rf_pred_aligned)
 
-        # Metrics
-        st.write("### Model Performance Metrics")
+        # # Metrics
+        # st.write("### Model Performance Metrics")
+        # metrics_data = {
+        #     'Metric': ['Explained Fit', 'Prediction Error', 'Directional Accuracy'],
+        #     'Univariate': [
+        #         f"{r2_score(y_aligned, combined_predictions) * 100:.2f}%",
+        #         f"{calculate_rmse_percentage(y_aligned, prophet_pred_aligned):.2f}%",
+        #         f"{calculate_directional_accuracy(y_aligned, prophet_pred_aligned):.2f}%"
+        #     ],
+        #     'Multivariate': [
+        #         f"{r2_score(y_aligned, rf_pred_aligned)* 100:.2f}%",
+        #         f"{calculate_rmse_percentage(y_aligned, rf_pred_aligned):.2f}%",
+        #         f"{calculate_directional_accuracy(y_aligned, rf_pred_aligned):.2f}%"
+        #     ],
+        #     'Combined': [
+        #         f"{r2_score(y_aligned, combined_predictions)* 100:.2f}%",
+        #         f"{calculate_rmse_percentage(y_aligned, combined_predictions):.2f}%",
+        #         f"{calculate_directional_accuracy(y_aligned, combined_predictions):.2f}%"
+        #     ]
+        # }
+        
+        ##########################################
+
+
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        X_scaled = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
+
+        print("Training Random Forest model...")
+        rf_model = train_rf_model(X_scaled, y)
+
+        prophet_predictions = forecast_prophet['yhat'].values[:len(prophet_df)]
+        rf_predictions = rf_model.predict(X_scaled)
+
+        min_length = min(len(y), len(prophet_predictions), len(rf_predictions))
+        y_aligned = y[:min_length]
+        prophet_pred_aligned = prophet_predictions[:min_length]
+        rf_pred_aligned = rf_predictions[:min_length]
+        dates_aligned = dates[:min_length]
+
+        combined_predictions, _, _ = combine_predictions2(
+            prophet_pred_aligned, rf_pred_aligned
+        )
+
+    # Calculate next month predictions
+        next_month_prophet = forecast_prophet['yhat'].values[len(prophet_df)]
+        
+        # Prepare last row for RF prediction
+        last_row = X_scaled.iloc[-1:].copy()
+        last_row['Palm oil_Lag1'] = y_aligned.iloc[-1]
+        next_month_rf = rf_model.predict(last_row)[0]
+        
+        # Calculate combined next month prediction
+        next_month_combined, _, _ = combine_predictions2(
+            np.array([next_month_prophet]), 
+            np.array([next_month_rf])
+        )
+        next_month_combined = next_month_combined[0]
+        
+        
+        # Create metrics table
         metrics_data = {
-            'Metric': ['Explained Fit', 'Prediction Error', 'Directional Accuracy'],
-            'Prophet': [
+            'Metric': ['Explained Fit', 'Prediction Error ', 'Directional Accuracy', 'Next Month Prediction'],
+            'Univariate Model': [
                 f"{r2_score(y_aligned, prophet_pred_aligned):.3f}",
                 f"{calculate_rmse_percentage(y_aligned, prophet_pred_aligned):.2f}%",
-                f"{calculate_directional_accuracy(y_aligned, prophet_pred_aligned):.2f}%"
+                f"{calculate_directional_accuracy(y_aligned, prophet_pred_aligned):.2f}%",
+                f"{next_month_prophet:.2f}"
             ],
-            'Random Forest': [
+            'Multivariate Model': [
                 f"{r2_score(y_aligned, rf_pred_aligned):.3f}",
                 f"{calculate_rmse_percentage(y_aligned, rf_pred_aligned):.2f}%",
-                f"{calculate_directional_accuracy(y_aligned, rf_pred_aligned):.2f}%"
+                f"{calculate_directional_accuracy(y_aligned, rf_pred_aligned):.2f}%",
+                f"{next_month_rf:.2f}"
             ],
-            'Combined': [
+            'Combined Model': [
                 f"{r2_score(y_aligned, combined_predictions):.3f}",
                 f"{calculate_rmse_percentage(y_aligned, combined_predictions):.2f}%",
-                f"{calculate_directional_accuracy(y_aligned, combined_predictions):.2f}%"
+                f"{calculate_directional_accuracy(y_aligned, combined_predictions):.2f}%",
+                f"{next_month_combined:.2f}"
             ]
         }
         st.table(pd.DataFrame(metrics_data))
