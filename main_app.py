@@ -319,8 +319,6 @@ with tabs[0]:
 # Tab 2: Combined Prediction
 with tabs[1]:
     # Streamlit App
-    st.title("Palm Oil Price Prediction App")
-
     # File Upload
     uploaded_file = st.file_uploader("Upload a CSV file with palm oil data:", type="csv")
     if uploaded_file:
