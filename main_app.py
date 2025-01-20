@@ -1,15 +1,13 @@
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 import streamlit as st
 from ta.trend import ADXIndicator
 from ta.momentum import StochasticOscillator
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 from prophet import Prophet
+from sklearn.model_selection import GridSearchCV
+from xgboost import XGBRegressor
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -116,125 +114,25 @@ def plot_signals(df, indicator_name, signal_column):
     plt.tight_layout()
     st.pyplot(plt.gcf())
     plt.clf()
+    
 
-# Palm Oil Price Prediction Functions
-def prepare_data(df):
-    df['Palm oil_Lag1'] = df['Palm oil'].shift(1)
-    df['Rapeseed oil_Lag1'] = df['Rapeseed oil'].shift(1)
-    df['Sunflower oil_Lag1'] = df['Sunflower oil'].shift(1)
-    df['Coconut oil_Lag1'] = df['Coconut oil'].shift(1)
-    df['Month'] = pd.to_datetime(df['Month'], format='%b-%y')
-    df['Price_Ratio_Palm_Rapeseed'] = df['Palm oil_Lag1'] / df['Rapeseed oil_Lag1']
-    df['Price_Ratio_Palm_Sunflower'] = df['Palm oil_Lag1'] / df['Sunflower oil_Lag1']
-    df['Price_Ratio_Palm_Coconut'] = df['Palm oil_Lag1'] / df['Coconut oil_Lag1']
-    return df.dropna()
-
-def create_features_target(df):
-    feature_columns = [
-        'Palm oil_Lag1', 'Rapeseed oil_Lag1', 'Sunflower oil_Lag1',
-        'Coconut oil_Lag1', 'Price_Ratio_Palm_Rapeseed',
-        'Price_Ratio_Palm_Sunflower', 'Price_Ratio_Palm_Coconut'
-    ]
-    X = df[feature_columns]
-    y = df['Palm oil']
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    return pd.DataFrame(X_scaled, columns=X.columns, index=X.index), y, df['Month']
-
-def plot_time_series(dates, y_true, y_pred, title):
-    fig, ax = plt.subplots(figsize=(15, 7))
-    ax.plot(dates, y_true, label='Actual', marker='o', alpha=0.7)
-    ax.plot(dates, y_pred, label='Predicted', marker='x', alpha=0.7)
-    ax.set_title(title, fontsize=14, pad=20)
-    ax.set_xlabel('Date', fontsize=12)
-    ax.set_ylabel('Price', fontsize=12)
-    ax.legend(fontsize=10)
-    ax.tick_params(axis='x', rotation=45)
-    ax.grid(True, alpha=0.3)
-    st.pyplot(fig)
-
-def plot_feature_importance(feature_importance):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x='importance', y='feature', data=feature_importance, ax=ax)
-    ax.set_title("Feature Importance", fontsize=14, pad=20)
-    ax.set_xlabel("Importance Score", fontsize=12)
-    ax.set_ylabel("Features", fontsize=12)
-    st.pyplot(fig)
-
-
-def create_prophet_model(df):
-    """
-    Create and fit Prophet model with optimized parameters
-    """
-    model = Prophet(
-        yearly_seasonality=True,
-        changepoint_prior_scale=0.5,
-        seasonality_prior_scale=0.01,
-        holidays_prior_scale=0.01,
-        seasonality_mode='additive',
-        changepoint_range=0.95
-    )
-    model.add_seasonality(name='monthly', period=30.5, fourier_order=8)
-    model.add_seasonality(name='quarterly', period=365.25 / 4, fourier_order=5)
-    model.add_regressor('covid')
-    model.add_regressor('war')
-    model.fit(df)
-    return model
-
-
-def make_predictions(model, df):
-    """
-    Make predictions and calculate metrics
-    """
-    future = model.make_future_dataframe(periods=6, freq='M')
-    future['covid'] = ((future['ds'] >= '2020-03-01') & (future['ds'] <= '2021-08-01')).astype(int)
-    future['war'] = ((future['ds'] >= '2021-12-01') & (future['ds'] <= '2022-08-01')).astype(int)
-    forecast = model.predict(future)
-    y_true = df['y'].values
-    y_pred = forecast['yhat'].values[:len(df)]
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    r2 = r2_score(y_true, y_pred)
-    return forecast, rmse, r2
-
-def plot_results(model, forecast, title="Palm Oil Price Forecast"):
-    """
-    Create visualization of the forecast
-    """
-    fig_forecast = model.plot(forecast)
-    fig_components = model.plot_components(forecast)
-    return fig_forecast, fig_components
-# Helper Functions
-def calculate_rmse_percentage(y_true, y_pred):
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    mean_actual = np.mean(y_true)
-    rmse_percentage = (rmse / mean_actual) * 100
-    print (f'\n\n\ndebug percentage {rmse_percentage}')
-    return rmse_percentage
-
-def calculate_directional_accuracy(y_true, y_pred):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    total_predictions = len(y_true) - 1
-    directional_correct = sum((y_true[t + 1] - y_true[t]) * (y_pred[t + 1] - y_true[t]) > 0 for t in range(total_predictions))
-    accuracy = (directional_correct / total_predictions) * 100
-    print (f'accuracy : {accuracy}')
-    return accuracy
+############Helper function for 2nd tab#####################    
 
 def prepare_data_prophet(df):
     prophet_df = df[['Month', 'Palm oil']].copy()
     prophet_df.columns = ['ds', 'y']
     prophet_df['ds'] = pd.to_datetime(prophet_df['ds'], format='%b-%y')
-    prophet_df['covid'] = ((prophet_df['ds'] >= '2020-03-01') & 
+    prophet_df['covid'] = ((prophet_df['ds'] >= '2020-03-01') &
                           (prophet_df['ds'] <= '2021-08-01')).astype(int)
-    prophet_df['war'] = ((prophet_df['ds'] >= '2021-12-01') & 
+    prophet_df['war'] = ((prophet_df['ds'] >= '2021-12-01') &
                         (prophet_df['ds'] <= '2022-08-01')).astype(int)
+    prophet_df = prophet_df.reset_index(drop=True)
     return prophet_df
 
 def prepare_data_rf(df):
     rf_df = df.copy()
     for col in ['Palm oil', 'Rapeseed oil', 'Sunflower oil', 'Coconut oil']:
         rf_df[f'{col}_Lag1'] = rf_df[col].shift(1)
-
     rf_df['Price_Ratio_Palm_Rapeseed'] = rf_df['Palm oil_Lag1'] / rf_df['Rapeseed oil_Lag1']
     rf_df['Price_Ratio_Palm_Sunflower'] = rf_df['Palm oil_Lag1'] / rf_df['Sunflower oil_Lag1']
     rf_df['Price_Ratio_Palm_Coconut'] = rf_df['Palm oil_Lag1'] / rf_df['Coconut oil_Lag1']
@@ -242,51 +140,41 @@ def prepare_data_rf(df):
     rf_df = rf_df.dropna().reset_index(drop=True)
     return rf_df
 
-def train_prophet_model(df):
-    model = Prophet(yearly_seasonality=True, changepoint_prior_scale=0.5, seasonality_prior_scale=0.1,
-                    holidays_prior_scale=0.1, seasonality_mode='additive', changepoint_range=0.9)
-    model.add_seasonality(name='monthly', period=30.5, fourier_order=8)
-    model.add_seasonality(name='quarterly', period=365.25/4, fourier_order=5)
+# Train RF Model with Hyperparameter Tuning
+def train_rf_model(X, y):
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [5, 10, 15, None],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+    rf = RandomForestRegressor(random_state=42)
+    grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, scoring='neg_mean_squared_error', cv=3, n_jobs=-1)
+    grid_search.fit(X, y)
+    return grid_search.best_estimator_
+
+# Train XGBoost Model with Hyperparameter Tuning
+def train_xgb_model(X, y):
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [3, 5, 10],
+        'learning_rate': [0.01, 0.05, 0.1],
+        'subsample': [0.6, 0.8, 1.0],
+        'colsample_bytree': [0.6, 0.8, 1.0]
+    }
+    model = XGBRegressor(random_state=42)
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, scoring='neg_mean_squared_error', cv=3, n_jobs=-1)
+    grid_search.fit(X, y)
+    return grid_search.best_estimator_
+
+# Train Prophet Model
+def train_prophet_model(df_prophet):
+    model = Prophet()
     model.add_regressor('covid')
     model.add_regressor('war')
-    model.fit(df)
+    model.fit(df_prophet)
     return model
 
-def train_rf_model(X, y):
-    model = RandomForestRegressor(n_estimators=200, max_depth=10, min_samples_split=2,
-                                   min_samples_leaf=1, max_features='sqrt', random_state=42)
-    model.fit(X, y)
-    return model
-
-def combine_predictions(prophet_pred, rf_pred):
-    prophet_weight = 0.05
-    rf_weight = 0.95
-    combined_pred = prophet_weight * prophet_pred + rf_weight * rf_pred
-    return combined_pred
-
-def plot_predictions(dates, y_true, y_pred_prophet, y_pred_rf, y_pred_combined):
-    fig, ax = plt.subplots(figsize=(15, 7))
-    ax.plot(dates, y_true, label='Actual', marker='o', alpha=0.7)
-    ax.plot(dates, y_pred_prophet, label='Univariate', marker='x', alpha=0.5)
-    ax.plot(dates, y_pred_rf, label='Multivariate', marker='+', alpha=0.5)
-    ax.plot(dates, y_pred_combined, label='Combined Model', marker='*', alpha=0.7, linewidth=2)
-    ax.set_title("Palm Oil Price Predictions", fontsize=14)
-    ax.set_xlabel('Date', fontsize=12)
-    ax.set_ylabel('Price', fontsize=12)
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
-    st.pyplot(fig)
-
-def combine_predictions2(prophet_pred, rf_pred):
-    """
-    Combine predictions using fixed weights:
-    Prophet: 0.05
-    Random Forest: 0.95
-    """
-    prophet_weight = 0.05
-    rf_weight = 0.95
-    combined_pred = prophet_weight * prophet_pred + rf_weight * rf_pred
-    return combined_pred, prophet_weight, rf_weight
 
 
 
@@ -332,130 +220,93 @@ with tabs[0]:
 
 # Tab 2: Combined Prediction
 with tabs[1]:
-    # Streamlit App
+    st.title("Palm Oil Price Prediction")
+    # st.write("An interactive dashboard for predicting palm oil prices using Random Forest, XGBoost, and Prophet.")
+
     # File Upload
-    uploaded_file = st.file_uploader("Upload a CSV file with palm oil data:", type="csv")
-    if uploaded_file:
+    uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+    if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
+        df['Month'] = pd.to_datetime(df['Month'], format='%b-%y')
+        # st.write("Preview of Uploaded Data:")
+        # st.dataframe(df.head())
+
+        # Prepare Data
         prophet_df = prepare_data_prophet(df)
         rf_df = prepare_data_rf(df)
 
-        prophet_model = train_prophet_model(prophet_df)
-        future_prophet = prophet_model.make_future_dataframe(periods=6, freq='M')
-        future_prophet['covid'] = ((future_prophet['ds'] >= '2020-03-01') & 
-                                (future_prophet['ds'] <= '2021-08-01')).astype(int)
-        future_prophet['war'] = ((future_prophet['ds'] >= '2021-12-01') & 
-                                (future_prophet['ds'] <= '2022-08-01')).astype(int)
-        forecast_prophet = prophet_model.predict(future_prophet)
-
-        # Train Random Forest Model
-        # st.write("### Training Random Forest Model")
+        # Define Features
         numerical_features = [
             'Palm oil_Lag1', 'Rapeseed oil_Lag1', 'Sunflower oil_Lag1', 'Coconut oil_Lag1',
             'Price_Ratio_Palm_Rapeseed', 'Price_Ratio_Palm_Sunflower', 'Price_Ratio_Palm_Coconut'
         ]
-        X = rf_df[numerical_features]
-        y = rf_df['Palm oil']
-        dates = rf_df['Month']
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-        X_scaled = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
-        rf_model = train_rf_model(X_scaled, y)
 
-        # Generate Predictions
-        prophet_predictions = forecast_prophet['yhat'].values[:len(prophet_df)]
-        rf_predictions = rf_model.predict(X_scaled)
-        min_length = min(len(y), len(prophet_predictions), len(rf_predictions))
-        y_aligned = y[:min_length]
-        prophet_pred_aligned = prophet_predictions[:min_length]
-        rf_pred_aligned = rf_predictions[:min_length]
-        dates_aligned = dates[:min_length]
-        combined_predictions = combine_predictions(prophet_pred_aligned, rf_pred_aligned)
-
-        # # Metrics
-        # st.write("### Model Performance Metrics")
-        # metrics_data = {
-        #     'Metric': ['Explained Fit', 'Prediction Error', 'Directional Accuracy'],
-        #     'Univariate': [
-        #         f"{r2_score(y_aligned, combined_predictions) * 100:.2f}%",
-        #         f"{calculate_rmse_percentage(y_aligned, prophet_pred_aligned):.2f}%",
-        #         f"{calculate_directional_accuracy(y_aligned, prophet_pred_aligned):.2f}%"
-        #     ],
-        #     'Multivariate': [
-        #         f"{r2_score(y_aligned, rf_pred_aligned)* 100:.2f}%",
-        #         f"{calculate_rmse_percentage(y_aligned, rf_pred_aligned):.2f}%",
-        #         f"{calculate_directional_accuracy(y_aligned, rf_pred_aligned):.2f}%"
-        #     ],
-        #     'Combined': [
-        #         f"{r2_score(y_aligned, combined_predictions)* 100:.2f}%",
-        #         f"{calculate_rmse_percentage(y_aligned, combined_predictions):.2f}%",
-        #         f"{calculate_directional_accuracy(y_aligned, combined_predictions):.2f}%"
-        #     ]
-        # }
-        
-        ##########################################
-
+        # Split Data
+        train_data = rf_df[rf_df['Month'] < '2024-07-01']
+        test_data = rf_df[(rf_df['Month'] >= '2024-07-01') & (rf_df['Month'] <= '2024-12-31')]
+        X_train, y_train = train_data[numerical_features], train_data['Palm oil']
+        X_test, y_test = test_data[numerical_features], test_data['Palm oil']
 
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-        X_scaled = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
 
-        print("Training Random Forest model...")
-        rf_model = train_rf_model(X_scaled, y)
+        # Train Models
+        st.write("Training models...")
+        rf_model = train_rf_model(X_train_scaled, y_train)
+        xgb_model = train_xgb_model(X_train_scaled, y_train)
+        prophet_model = train_prophet_model(prophet_df[prophet_df['ds'] < '2024-07-01'])
 
-        prophet_predictions = forecast_prophet['yhat'].values[:len(prophet_df)]
-        rf_predictions = rf_model.predict(X_scaled)
+        # Predictions
+        rf_test_predictions = rf_model.predict(X_test_scaled)
+        xgb_test_predictions = xgb_model.predict(X_test_scaled)
 
-        min_length = min(len(y), len(prophet_predictions), len(rf_predictions))
-        y_aligned = y[:min_length]
-        prophet_pred_aligned = prophet_predictions[:min_length]
-        rf_pred_aligned = rf_predictions[:min_length]
-        dates_aligned = dates[:min_length]
+        future_dates = pd.date_range('2024-07-01', '2024-12-31', freq='M')
+        future_prophet = pd.DataFrame({'ds': future_dates})
+        future_prophet['covid'] = 0
+        future_prophet['war'] = 0
+        prophet_forecast = prophet_model.predict(future_prophet)
+        prophet_test_predictions = prophet_forecast['yhat'].values
 
-        combined_predictions, _, _ = combine_predictions2(
-            prophet_pred_aligned, rf_pred_aligned
-        )
+        # Display Results
+        st.write("### Test Data Predictions:")
+        test_results = pd.DataFrame({
+            'Month': test_data['Month'],
+            'Actual Price': y_test.values,
+            'Prophet Prediction': prophet_test_predictions,
+            'Random Forest Prediction': rf_test_predictions,
+            'XGBoost Prediction': xgb_test_predictions
+        })
+        st.dataframe(test_results)
 
-    # Calculate next month predictions
-        next_month_prophet = forecast_prophet['yhat'].values[len(prophet_df)]
-        
-        # Prepare last row for RF prediction
-        last_row = X_scaled.iloc[-1:].copy()
-        last_row['Palm oil_Lag1'] = y_aligned.iloc[-1]
-        next_month_rf = rf_model.predict(last_row)[0]
-        
-        # Calculate combined next month prediction
-        next_month_combined, _, _ = combine_predictions2(
-            np.array([next_month_prophet]), 
-            np.array([next_month_rf])
-        )
-        next_month_combined = next_month_combined[0]
-        
-        
-        # Create metrics table
-        metrics_data = {
-            'Metric': ['Explained Fit', 'Prediction Error ', 'Directional Accuracy', 'Next Month Prediction'],
-            'Univariate Model': [
-                f"{r2_score(y_aligned, prophet_pred_aligned):.3f}",
-                f"{calculate_rmse_percentage(y_aligned, prophet_pred_aligned):.2f}%",
-                f"{calculate_directional_accuracy(y_aligned, prophet_pred_aligned):.2f}%",
-                f"{next_month_prophet:.2f}"
-            ],
-            'Multivariate Model': [
-                f"{r2_score(y_aligned, rf_pred_aligned):.3f}",
-                f"{calculate_rmse_percentage(y_aligned, rf_pred_aligned):.2f}%",
-                f"{calculate_directional_accuracy(y_aligned, rf_pred_aligned):.2f}%",
-                f"{next_month_rf:.2f}"
-            ],
-            'Combined Model': [
-                f"{r2_score(y_aligned, combined_predictions):.3f}",
-                f"{calculate_rmse_percentage(y_aligned, combined_predictions):.2f}%",
-                f"{calculate_directional_accuracy(y_aligned, combined_predictions):.2f}%",
-                f"{next_month_combined:.2f}"
-            ]
-        }
-        st.table(pd.DataFrame(metrics_data))
+        # Monthly and Quarterly Aggregation
+        test_results['Month'] = pd.to_datetime(test_results['Month'])
+        test_results['Quarter'] = test_results['Month'].dt.to_period('Q')
+
+        monthly_results = test_results.groupby('Month').mean()
+        quarterly_results = test_results.groupby('Quarter').mean()
+
+        st.write("### Monthly Aggregation")
+        st.dataframe(monthly_results)
+
+        st.write("### Quarterly Aggregation")
+        st.dataframe(quarterly_results)
 
         # Plot Predictions
-        st.write("### Predictions vs Actual Values")
-        plot_predictions(dates_aligned, y_aligned, prophet_pred_aligned, rf_pred_aligned, combined_predictions)
+        st.write("### Predictions Visualization")
+        plt.figure(figsize=(10, 6))
+        plt.plot(test_data['Month'], y_test, label='Actual Price', color='black', marker='o')
+        plt.plot(test_data['Month'], rf_test_predictions, label='Random Forest', color='green', linestyle='--')
+        plt.plot(test_data['Month'], xgb_test_predictions, label='XGBoost', color='red', linestyle='--')
+        plt.plot(test_data['Month'], prophet_test_predictions, label='Prophet', color='blue', linestyle='--')
+        plt.legend()
+        plt.title("Palm Oil Price Predictions (July-Dec 2024)")
+        plt.xlabel("Month")
+        plt.ylabel("Price")
+        plt.grid(True)
+        st.pyplot(plt)
+
+        # Download Results
+        st.write("### Download Predictions")
+        csv = test_results.to_csv(index=False)
+        st.download_button("Download Predictions as CSV", data=csv, file_name="predictions.csv", mime="text/csv")
