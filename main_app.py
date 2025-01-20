@@ -154,25 +154,7 @@ def train_rf_model(X, y):
     return grid_search.best_estimator_
 
 # Train XGBoost Model with Hyperparameter Tuning
-# def train_xgb_model(X, y):
-#     param_grid = {
-#         'n_estimators': [100, 200, 300],
-#         'max_depth': [3, 5, 10],
-#         'learning_rate': [0.01, 0.05, 0.1],
-#         'subsample': [0.6, 0.8, 1.0],
-#         'colsample_bytree': [0.6, 0.8, 1.0]
-#     }
-#     model = XGBRegressor(random_state=42)
-#     grid_search = GridSearchCV(estimator=model, param_grid=param_grid, scoring='neg_mean_squared_error', cv=3, n_jobs=-1)
-#     grid_search.fit(X, y)
-#     return grid_search.best_estimator_
-
-
 def train_xgb_model(X, y):
-    # Define model with regressor (for regression tasks)
-    model = XGBRegressor(random_state=42)
-    
-    # Hyperparameters to tune
     param_grid = {
         'n_estimators': [100, 200, 300],
         'max_depth': [3, 5, 10],
@@ -180,14 +162,10 @@ def train_xgb_model(X, y):
         'subsample': [0.6, 0.8, 1.0],
         'colsample_bytree': [0.6, 0.8, 1.0]
     }
-    
-    # Use GridSearchCV for hyperparameter tuning
+    model = XGBRegressor(random_state=42)
     grid_search = GridSearchCV(estimator=model, param_grid=param_grid, scoring='neg_mean_squared_error', cv=3, n_jobs=-1)
     grid_search.fit(X, y)
-    
-    # Return best model
     return grid_search.best_estimator_
-
 
 # Train Prophet Model
 def train_prophet_model(df_prophet):
