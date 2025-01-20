@@ -8,7 +8,9 @@ from sklearn.preprocessing import StandardScaler
 from prophet import Prophet
 from sklearn.model_selection import GridSearchCV
 from xgboost import XGBRegressor
+from sklearn.metrics import r2_score, mean_squared_error
 import warnings
+import numpy as np
 warnings.filterwarnings('ignore')
 
 
@@ -175,7 +177,11 @@ def train_prophet_model(df_prophet):
     model.fit(df_prophet)
     return model
 
+def calculate_rmse_percentage(actual, predicted):
+    return np.sqrt(mean_squared_error(actual, predicted)) / np.mean(actual) * 100
 
+def calculate_directional_accuracy(actual, predicted):
+    return np.mean(np.sign(np.diff(actual)) == np.sign(np.diff(predicted))) * 100
 
 
 # Main Streamlit App
@@ -221,15 +227,13 @@ with tabs[0]:
 # Tab 2: Combined Prediction
 with tabs[1]:
     st.title("Palm Oil Price Prediction")
-    # st.write("An interactive dashboard for predicting palm oil prices using Random Forest, XGBoost, and Prophet.")
+    st.write("An interactive dashboard for predicting palm oil prices using Random Forest, XGBoost, and Prophet.")
 
     # File Upload
     uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         df['Month'] = pd.to_datetime(df['Month'], format='%b-%y')
-        # st.write("Preview of Uploaded Data:")
-        # st.dataframe(df.head())
 
         # Prepare Data
         prophet_df = prepare_data_prophet(df)
@@ -268,7 +272,55 @@ with tabs[1]:
         prophet_forecast = prophet_model.predict(future_prophet)
         prophet_test_predictions = prophet_forecast['yhat'].values
 
-        # Display Results
+        # Calculate Metrics
+        rf_r2 = r2_score(y_test, rf_test_predictions)
+        xgb_r2 = r2_score(y_test, xgb_test_predictions)
+        prophet_r2 = r2_score(y_test, prophet_test_predictions)
+
+        rf_rmse_percentage = calculate_rmse_percentage(y_test, rf_test_predictions)
+        xgb_rmse_percentage = calculate_rmse_percentage(y_test, xgb_test_predictions)
+        prophet_rmse_percentage = calculate_rmse_percentage(y_test, prophet_test_predictions)
+
+        rf_directional_accuracy = calculate_directional_accuracy(y_test, rf_test_predictions)
+        xgb_directional_accuracy = calculate_directional_accuracy(y_test, xgb_test_predictions)
+        prophet_directional_accuracy = calculate_directional_accuracy(y_test, prophet_test_predictions)
+        
+        # Create a DataFrame for Model Accuracy Metrics
+        metrics_df = pd.DataFrame({
+            'Model': ['Random Forest', 'XGBoost', 'Prophet'],
+            'R²': [rf_r2, xgb_r2, prophet_r2],
+            'RMSE Percentage': [rf_rmse_percentage, xgb_rmse_percentage, prophet_rmse_percentage],
+            'Directional Accuracy': [rf_directional_accuracy, xgb_directional_accuracy, prophet_directional_accuracy]
+        })
+        
+        # Custom CSS to adjust column width
+        st.markdown("""
+            <style>
+            .stDataFrame table th, .stDataFrame table td {
+                padding: 10px;
+                text-align: center;
+            }
+            .stDataFrame table th:nth-child(1), .stDataFrame table td:nth-child(1) {
+                width: 200px;
+            }
+            .stDataFrame table th:nth-child(2), .stDataFrame table td:nth-child(2) {
+                width: 100px;
+            }
+            .stDataFrame table th:nth-child(3), .stDataFrame table td:nth-child(3) {
+                width: 150px;
+            }
+            .stDataFrame table th:nth-child(4), .stDataFrame table td:nth-child(4) {
+                width: 200px;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # Display Model Accuracy Metrics in Tabular Format
+        st.write("### Model Accuracy Metrics:")
+        st.dataframe(metrics_df)
+
+
+        # Test Data Predictions
         st.write("### Test Data Predictions:")
         test_results = pd.DataFrame({
             'Month': test_data['Month'],
