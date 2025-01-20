@@ -3,6 +3,6 @@ numpy
 matplotlib
 streamlit
 scikit-learn
-xgboost>=1.6.0
+xgboost
 prophet
 ta
