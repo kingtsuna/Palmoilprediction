@@ -6,3 +6,4 @@ ta
 numpy
 scikit-learn
 seaborn
+xgboost
