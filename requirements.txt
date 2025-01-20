@@ -3,7 +3,5 @@ pandas
 prophet
 matplotlib
 ta
-numpy
-scikit-learn
-seaborn
-xgboost
+scikit-learn==1.3.0
+xgboost==1.7.6
